@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34616.47
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AeroexpressHelper", "AeroexpressHelper\AeroexpressHelper.csproj", "{00F1B4B9-F8D1-456E-A507-050565307E68}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSVnJSONAnalyzer", "CSVnJSONAnalyzer\CSVnJSONAnalyzer.csproj", "{2296E5E0-30A3-4EF0-AF30-F780655D260B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{00F1B4B9-F8D1-456E-A507-050565307E68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00F1B4B9-F8D1-456E-A507-050565307E68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00F1B4B9-F8D1-456E-A507-050565307E68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00F1B4B9-F8D1-456E-A507-050565307E68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2296E5E0-30A3-4EF0-AF30-F780655D260B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2296E5E0-30A3-4EF0-AF30-F780655D260B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2296E5E0-30A3-4EF0-AF30-F780655D260B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2296E5E0-30A3-4EF0-AF30-F780655D260B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {96549002-D98A-4C1B-AFDC-2656C95D96A3}
+	EndGlobalSection
+EndGlobal
