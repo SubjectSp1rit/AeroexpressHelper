@@ -1,7 +1,6 @@
 ﻿namespace CSVnJSONAnalyzer
 {
-    public class Class1
+    public class JSONProcessing
     {
-
     }
 }
