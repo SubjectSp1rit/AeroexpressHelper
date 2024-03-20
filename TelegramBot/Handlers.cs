@@ -28,6 +28,9 @@ namespace TelegramBot
                         var user = message.From;
                         var chat = message.Chat;
 
+                        var csvProcessing = new CSVProcessing();
+                        var jsonProcessing = new JSONProcessing();
+
                         if (message.Text != null)
                         {
                             Log.Information($"{message.Chat.Username ?? "Аноним"} (id64: {user.Id}) написал сообщение: {message.Text}");
@@ -155,15 +158,14 @@ namespace TelegramBot
                                     await botClient.DownloadFileAsync(filePath, saveFileStream);
                                 }
 
-                                
                                 // TODO:Добавить проверку на наличие второго заголовка
                                 // TODO:Добавить проверку на корректность данных
 
                                 await botClient.SendTextMessageAsync(
-                                    message.Chat.Id,
-                                    text: $"Файл с расширением {fileExtension} успешно загружен!",
-                                    replyMarkup: inlineBackToMenuKeyboard,
-                                    cancellationToken: cancellationToken);
+                                message.Chat.Id,
+                                text: $"Файл с расширением {fileExtension} успешно загружен!",
+                                replyMarkup: inlineBackToMenuKeyboard,
+                                cancellationToken: cancellationToken);
                             }
                             else if (fileExtension == ".json")
                             {
@@ -201,15 +203,15 @@ namespace TelegramBot
                         var callbackQuery = update.CallbackQuery;
                         var user = callbackQuery.From;
 
+                        var csvProcessing = new CSVProcessing();
+                            var jsonProcessing = new JSONProcessing();
+
                         Log.Information($"{user.Username ?? "Аноним"} (id64: {user.Id}) нажал на inline-кнопку: {callbackQuery.Data}");
                   
                         // Вот тут нужно уже быть немножко внимательным и не путаться!
                         // Мы пишем не callbackQuery.Chat , а callbackQuery.Message.Chat , так как
                         // кнопка привязана к сообщению, то мы берем информацию от сообщения.
                         var chat = callbackQuery.Message.Chat; 
-
-                        var csvProcessing = new CSVProcessing();
-                        var jsonProcessing = new JSONProcessing();
                     
                         switch (callbackQuery.Data)
                         {
