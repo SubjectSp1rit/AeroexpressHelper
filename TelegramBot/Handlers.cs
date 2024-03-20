@@ -9,6 +9,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 using static TelegramBot.Keyboards;
 using static CSVnJSONAnalyzer.CSVProcessing;
 using static CSVnJSONAnalyzer.JSONProcessing;
+using CSVnJSONAnalyzer;
+using System.Collections.Generic;
 
 namespace TelegramBot
 {
@@ -138,7 +140,7 @@ namespace TelegramBot
                         if (message.Document != null)
                         {
                             var fileId = message.Document.FileId;
-                            var fileInfo = await botClient.GetFileAsync(fileId);
+                            var fileInfo = await botClient.GetFileAsync(fileId, cancellationToken);
                             var filePath = fileInfo.FilePath;
                             var fileExtension = Path.GetExtension(filePath).ToLower();
 
@@ -152,6 +154,10 @@ namespace TelegramBot
                                 {
                                     await botClient.DownloadFileAsync(filePath, saveFileStream);
                                 }
+
+                                
+                                // TODO:Добавить проверку на наличие второго заголовка
+                                // TODO:Добавить проверку на корректность данных
 
                                 await botClient.SendTextMessageAsync(
                                     message.Chat.Id,
@@ -167,6 +173,8 @@ namespace TelegramBot
                                 {
                                     await botClient.DownloadFileAsync(filePath, saveFileStream);
                                 }
+
+                                // TODO: Добавить проверку на корректность данных
 
                                 await botClient.SendTextMessageAsync(
                                     message.Chat.Id,
@@ -199,6 +207,9 @@ namespace TelegramBot
                         // Мы пишем не callbackQuery.Chat , а callbackQuery.Message.Chat , так как
                         // кнопка привязана к сообщению, то мы берем информацию от сообщения.
                         var chat = callbackQuery.Message.Chat; 
+
+                        var csvProcessing = new CSVProcessing();
+                        var jsonProcessing = new JSONProcessing();
                     
                         switch (callbackQuery.Data)
                         {
@@ -414,10 +425,69 @@ namespace TelegramBot
                             
                             case "SortCSV":
                             {
+                                await botClient.EditMessageTextAsync(
+                                    chatId: chat.Id,
+                                    messageId: callbackQuery.Message.MessageId,
+                                    text: "Выберите поле для сортировки",
+                                    cancellationToken: cancellationToken,
+                                    replyMarkup: inlineSelectSortCSVTypeKeyboard);
                                 return;
                             }
 
                             case "SortJSON":
+                            {
+                                return;
+                            }
+
+                            case "sortCSVByTimeStart":
+                            {
+                                using var fileStream = new MemoryStream();
+                                fileStream.Position = 0;
+
+                                List <Aeroexpress> lines;
+                                bool successfullCreationArray = csvProcessing.Read(fileStream, out lines);
+                                if (!successfullCreationArray)
+                                {
+                                    await botClient.EditMessageTextAsync(
+                                    chatId: chat.Id,
+                                    messageId: callbackQuery.Message.MessageId,
+                                    text: "К сожалению, возникла ошибка при обработке файла",
+                                    cancellationToken: cancellationToken,
+                                    replyMarkup: inlineBackToMenuKeyboard);
+                                    Log.Error($"Неудачная сортировка файла {user.Id}.csv");
+                                    return;
+                                }
+
+                                bool success = SortByTimeStart($"{user.Id}.csv");
+                                if (success)
+                                {
+                                    await botClient.EditMessageTextAsync(
+                                    chatId: chat.Id,
+                                    messageId: callbackQuery.Message.MessageId,
+                                    text: "Файл успешно отсортирован! Можете скачать его ниже.",
+                                    cancellationToken: cancellationToken);
+
+                                    await botClient.EditMessageTextAsync(
+                                    chatId: chat.Id,
+                                    messageId: callbackQuery.Message.MessageId,
+                                    text: "Нажмите кнопку ниже для возврата в меню",
+                                    cancellationToken: cancellationToken,
+                                    replyMarkup: inlineBackToMenuKeyboard);
+                                }
+                                else
+                                {
+                                    await botClient.EditMessageTextAsync(
+                                    chatId: chat.Id,
+                                    messageId: callbackQuery.Message.MessageId,
+                                    text: "Oops...Произошла ошибка во время сортировки. Попробуйте снова. Если ошибка \n" +
+                                    "повторится, проверьте корректность данных в файле",
+                                    cancellationToken: cancellationToken,
+                                    replyMarkup: inlineBackToMenuKeyboard);
+                                }
+                                return;
+                            }
+
+                            case "sortCSVByTimeEnd":
                             {
                                 return;
                             }

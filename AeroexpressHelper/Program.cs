@@ -23,7 +23,7 @@ public class Program
             .WriteTo.Async(x => x.File("log.txt"))
             .CreateLogger();
 
-        _botClient = new TelegramBotClient("6881641707:AAEh5WGzjV6vRABIA8AJr7nD-wDQnpSiI9s"); // Токен бота
+        _botClient = new TelegramBotClient("6881641707:AAFxZF5JuFb9imit9o8kwtJlzECsm04XnvA"); // Токен бота
         _receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = new[] // Указываем типы получаемых Update`ов
@@ -40,7 +40,7 @@ public class Program
 
         // UpdateHander - обработчик приходящих Update`ов
         // ErrorHandler - обработчик ошибок, связанных с Bot API
-        _botClient.StartReceiving(UpdateHandler, ErrorHandler, _receiverOptions, cts.Token); // Запускаем бота
+        _botClient.StartReceiving(UpdateHandler, ErrorHandler, _receiverOptions, cancellationToken: cts.Token); // Запускаем бота
 
         var me = await _botClient.GetMeAsync(); // Создаем переменную, в которую помещаем информацию о нашем боте.
         Log.Information($"{me.FirstName} запущен!");

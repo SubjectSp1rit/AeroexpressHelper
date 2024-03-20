@@ -188,5 +188,19 @@ namespace TelegramBot
                                             InlineKeyboardButton.WithCallbackData("Вернуться в меню", "backToMenu")
                                         }
                                     });
+
+        public static InlineKeyboardMarkup inlineSelectSortCSVTypeKeyboard = new InlineKeyboardMarkup(
+                                    new List<InlineKeyboardButton[]>()
+                                    {
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("TimeStart в порядке увеличения времени", "sortCSVByTimeStart"),
+                                            InlineKeyboardButton.WithCallbackData("TimeEnd в порядке увеличения времени", "sortCSVByTimeEnd")
+                                        },
+                                        new InlineKeyboardButton[]
+                                        {
+                                            InlineKeyboardButton.WithCallbackData("Вернуться в меню", "backToMenu")
+                                        }
+                                    });
     }
 }
