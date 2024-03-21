@@ -1,29 +1,58 @@
 ﻿using Serilog;
 using System.Text.Json;
-using System.Text.Encodings.Web;
-using System.Text;
-
 namespace CSVnJSONAnalyzer
 {
+    /// <summary>
+    /// Работает с файлами типа .json
+    /// </summary>
     public class JSONProcessing
     {
-        public static Stream WriteAsync(List<Aeroexpress> aeroexpresses)
+        /// <summary>
+        /// принимает на вход коллекцию объектов типа Aeroexpress и возвращает
+        /// объект типа Stream, который будет использован для отправки json файла Telegram-
+        /// ботом
+        /// </summary>
+        /// <param name="aeroexpresses"></param>
+        /// <returns></returns>
+        public static Stream Write(List<Aeroexpress> aeroexpresses)
         {
-            var memoryStream = new MemoryStream();
-            JsonSerializer.SerializeAsync(memoryStream, aeroexpresses);
+            try
+            {
+                var memoryStream = new MemoryStream();
+                JsonSerializer.SerializeAsync(memoryStream, aeroexpresses);
 
-            memoryStream.Seek(0, SeekOrigin.Begin);
-            return memoryStream;
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                return memoryStream;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Ошибка открытия потока для записи в JSON: {ex.Message}");
+                return MemoryStream.Null;
+            }
         }
 
-        public static List<Aeroexpress> ReadAsync(Stream jsonStream)
+        /// <summary>
+        /// принимает на вход Stream с json файлом из Telegram-бота и
+        // возвращает коллекцию объектов типа MyType
+        /// </summary>
+        /// <param name="jsonStream"></param>
+        /// <returns></returns>
+        public static List<Aeroexpress> Read(Stream jsonStream)
         {
-            if (jsonStream.CanSeek)
+            try
             {
-                jsonStream.Seek(0, SeekOrigin.Begin);
-            }
+                if (jsonStream.CanSeek)
+                {
+                    jsonStream.Seek(0, SeekOrigin.Begin);
+                }
 
-            return JsonSerializer.Deserialize<List<Aeroexpress>>(jsonStream) ?? new List<Aeroexpress>();
+                return JsonSerializer.Deserialize<List<Aeroexpress>>(jsonStream) ?? new List<Aeroexpress>();
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Ошибка чтения JSON файла: {ex.Message}");
+                return new List<Aeroexpress>();
+            }
         }
     }
 }

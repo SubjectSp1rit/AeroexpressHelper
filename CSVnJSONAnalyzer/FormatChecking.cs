@@ -1,38 +1,70 @@
 ﻿using Serilog;
-using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 
 namespace CSVnJSONAnalyzer
 {
+    /// <summary>
+    /// Валидирует данные
+    /// </summary>
     public class FormatChecking
     {
+        /// <summary>
+        /// Проверяет совпадают ли два заголовка из CSV файла
+        /// </summary>
+        /// <param name="actualHeader"></param>
+        /// <param name="expectedHeader"></param>
+        /// <returns></returns>
         private static bool HeaderMatch(string actualHeader, string[] expectedHeader)
         {
-            string[] actualHeaderParts = actualHeader.Split(new char[] { ';', ',' }).Select(line => line.Trim('"'))
+            try
+            {
+                string[] actualHeaderParts = actualHeader.Split(new char[] { ';', ',' }).Select(line => line.Trim('"'))
                 .Select(h => h.Trim().ToLower()).Where(line => !string.IsNullOrEmpty(line)).ToArray();
-            expectedHeader = expectedHeader.Select(h => h.Trim().ToLower()).ToArray();
+                expectedHeader = expectedHeader.Select(h => h.Trim().ToLower()).ToArray();
 
-            return actualHeaderParts.SequenceEqual(expectedHeader);
+                return actualHeaderParts.SequenceEqual(expectedHeader);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Ошибка при сравнении заголовков: {ex.Message}");
+                return false;
+            }
         }
 
+        /// <summary>
+        /// Проверка на наличие второго заголовка в csv файле
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns>true - заголовок есть; false иначе</returns>
         public static bool DoHaveSecondHeader(string filePath)
         {
-            string[] csvRows = File.ReadAllLines(filePath);
-            string actualSecondHeaderParts = csvRows[1];
-            string[] expectedSecondHeader = new string[] { "Локальный идентификатор",
+            try
+            {
+                string[] csvRows = File.ReadAllLines(filePath);
+                string actualSecondHeaderParts = csvRows[1];
+                string[] expectedSecondHeader = new string[] { "Локальный идентификатор",
                                                    "Станция отправления",
                                                    "Направление Аэроэкспресс",
                                                    "Время отправления со станции",
                                                    "Конечная станция направления Аэроэкспресс",
                                                    "Время прибытия на конечную станцию направления Аэроэкспресс",
                                                    "global_id" };
-            
-            return HeaderMatch(actualSecondHeaderParts, expectedSecondHeader);
+
+                return HeaderMatch(actualSecondHeaderParts, expectedSecondHeader);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Ошибка при поиске второго заголовка: {ex.Message}");
+                return false;
+            }
         }
 
+        /// <summary>
+        /// Убирает второй заголовок из файла
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static bool RemoveSecondHeader(string filePath)
         {
             try
@@ -47,10 +79,17 @@ namespace CSVnJSONAnalyzer
             }
             catch (Exception ex)
             {
+                Log.Error($"Ошибка при попытке убрать второй заголовок: {ex.Message}");
                 return false;
             }
         }
 
+        /// <summary>
+        /// Проверка корректности формата csv-файла
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="hadSecondHeader"></param>
+        /// <returns>строка - сообщение об ошибке. Если строка пустая - ошибок нет</returns>
         public static string CheckCSVFormat(string filePath, bool hadSecondHeader = false)
         {
             try
@@ -106,6 +145,11 @@ namespace CSVnJSONAnalyzer
             }
         }
 
+        /// <summary>
+        /// Проверка корректности JSON-файла
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns>true - формат корректный; false иначе</returns>
         public static bool CheckJSONFormat(string filePath)
         {
             try
@@ -116,10 +160,20 @@ namespace CSVnJSONAnalyzer
                 {
                     return false;
                 }
+                // Проверка корректности времени
+                foreach (var item in aeroexpresses)
+                {
+                    string timePattern = @"^\d{2}:\d{2}$";
+                    if (!Regex.IsMatch(item.TimeStart, timePattern) || !Regex.IsMatch(item.TimeEnd, timePattern))
+                    {
+                        return false;
+                    }
+                }
                 return true;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Log.Error($"Произошла ошибка при проверке формата {filePath}: {ex.Message}");
                 return false;
             }
         }

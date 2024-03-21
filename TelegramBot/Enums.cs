@@ -4,6 +4,9 @@ namespace TelegramBot
 {
     public class Enums
     {
+        /// <summary>
+        /// Состояние каждого пользователя - ничего, ожидание сообщения, ожидание второго сообщения
+        /// </summary>
         public enum UserState
         {
             None,
@@ -11,6 +14,9 @@ namespace TelegramBot
             AwaitingForSecondMessage
         }
 
+        /// <summary>
+        /// Выбранные пользователем фильтры
+        /// </summary>
         public enum SelectedFilterType
         {
             None,

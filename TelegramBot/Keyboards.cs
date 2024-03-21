@@ -2,9 +2,15 @@
 
 namespace TelegramBot
 {
+    /// <summary>
+    /// Хранит все клавиатуры, которые выдаются пользователю
+    /// </summary>
     public static class Keyboards
     {
-        public static InlineKeyboardMarkup inlineMenuKeyboardWithJSONandCSV = new InlineKeyboardMarkup(
+        /// <summary>
+        /// Полная клавиатура главного меню
+        /// </summary>
+        public static InlineKeyboardMarkup InlineMenuKeyboardWithJSONandCSV { get; } = new InlineKeyboardMarkup(
                                     new List<InlineKeyboardButton[]>()
                                     {
                                         new InlineKeyboardButton[]
@@ -31,7 +37,10 @@ namespace TelegramBot
                                         }
                                     });
 
-        public static InlineKeyboardMarkup inlineMenuKeyboardSimplified = new InlineKeyboardMarkup(
+        /// <summary>
+        /// Упрощенная клавиатура главного меню
+        /// </summary>
+        public static InlineKeyboardMarkup InlineMenuKeyboardSimplified { get; } = new InlineKeyboardMarkup(
                                     new List<InlineKeyboardButton[]>()
                                     {
                                         new InlineKeyboardButton[]
@@ -44,7 +53,10 @@ namespace TelegramBot
                                         }
                                     });
 
-        public static InlineKeyboardMarkup inlineBackToMenuKeyboard = new InlineKeyboardMarkup(
+        /// <summary>
+        /// Клавиатура возврата в меню
+        /// </summary>
+        public static InlineKeyboardMarkup InlineBackToMenuKeyboard { get; } = new InlineKeyboardMarkup(
                                     new List<InlineKeyboardButton[]>()
                                     {
                                         new InlineKeyboardButton[]
@@ -53,7 +65,10 @@ namespace TelegramBot
                                         }
                                     });
 
-        public static InlineKeyboardMarkup inlineSelectSortCSVTypeKeyboard = new InlineKeyboardMarkup(
+        /// <summary>
+        /// Клавиатура выбора сортировки
+        /// </summary>
+        public static InlineKeyboardMarkup InlineSelectSortCSVTypeKeyboard { get; } = new InlineKeyboardMarkup(
                                     new List<InlineKeyboardButton[]>()
                                     {
                                         new InlineKeyboardButton[]
@@ -67,7 +82,10 @@ namespace TelegramBot
                                         }
                                     });
 
-        public static InlineKeyboardMarkup inlineSelectFilterCSVTypeKeyboard = new InlineKeyboardMarkup(
+        /// <summary>
+        /// Клавиатура выбора фильтра
+        /// </summary>
+        public static InlineKeyboardMarkup InlineSelectFilterCSVTypeKeyboard { get; } = new InlineKeyboardMarkup(
                                     new List<InlineKeyboardButton[]>()
                                     {
                                         new InlineKeyboardButton[]

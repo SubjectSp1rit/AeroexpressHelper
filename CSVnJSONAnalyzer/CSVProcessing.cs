@@ -1,10 +1,6 @@
 ﻿using Serilog;
-using static CSVnJSONAnalyzer.FormatChecking;
-using static CSVnJSONAnalyzer.Aeroexpress;
 using System.Data;
 using System.Text;
-using Telegram.Bot.Types;
-using System.IO;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 
@@ -15,6 +11,12 @@ namespace CSVnJSONAnalyzer
     /// </summary>
     public class CSVProcessing
     {
+        /// <summary>
+        /// Читает данные из .csv файла и возвращает список экземпляров класса Aeroexpress
+        /// </summary>
+        /// <param name="csvStream"></param>
+        /// <param name="aeroexpressList"></param>
+        /// <returns>true - успешно; false иначе</returns>
         public bool Read(Stream csvStream, out List<Aeroexpress> aeroexpressList)
         {
             aeroexpressList = new List<Aeroexpress>();
@@ -59,31 +61,51 @@ namespace CSVnJSONAnalyzer
             }
         }
 
+        /// <summary>
+        /// Принимает коллекцию экземпляров класса Aeroexpress и добавляет их в поток для последующего
+        /// сохранения
+        /// </summary>
+        /// <param name="aeroexpresses"></param>
+        /// <returns>поток, в котором находятся данные для сохранения</returns>
         public Stream Write(List<Aeroexpress> aeroexpresses)
         {
-            var memoryStream = new MemoryStream();
-            var writer = new StreamWriter(memoryStream, Encoding.UTF8);
-            
-            writer.WriteLine("\"ID\";\"StationStart\";\"Line\";\"TimeStart\";\"StationEnd\";\"TimeEnd\";\"global_id\"");
-            foreach (var aeroexpress in aeroexpresses)
+            try
             {
-                var line = $"\"{aeroexpress.Id}\";" +
-                            $"\"{aeroexpress.StationStart}\";" +
-                            $"\"{aeroexpress.Line}\";" +
-                            $"\"{aeroexpress.TimeStart}\";" +
-                            $"\"{aeroexpress.StationEnd}\";" +
-                            $"\"{aeroexpress.TimeEnd}\";" +
-                            $"\"{aeroexpress.GlobalId}\"";
-                writer.WriteLine(line);
-            }
+                var memoryStream = new MemoryStream();
+                var writer = new StreamWriter(memoryStream, Encoding.UTF8);
 
-            // Очистка всех буферов для writer и запись всех данных в базовый поток
-            writer.Flush();
-            
-            memoryStream.Position = 0;
-            return memoryStream;
+                writer.WriteLine("\"ID\";\"StationStart\";\"Line\";\"TimeStart\";\"StationEnd\";\"TimeEnd\";\"global_id\"");
+                foreach (var aeroexpress in aeroexpresses)
+                {
+                    var line = $"\"{aeroexpress.Id}\";" +
+                                $"\"{aeroexpress.StationStart}\";" +
+                                $"\"{aeroexpress.Line}\";" +
+                                $"\"{aeroexpress.TimeStart}\";" +
+                                $"\"{aeroexpress.StationEnd}\";" +
+                                $"\"{aeroexpress.TimeEnd}\";" +
+                                $"\"{aeroexpress.GlobalId}\"";
+                    writer.WriteLine(line);
+                }
+
+                // Очистка всех буферов для writer и запись всех данных в базовый поток
+                writer.Flush();
+
+                memoryStream.Position = 0;
+                return memoryStream;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Произошла ошибка при создании потока для CSV: {ex.Message}");
+                return MemoryStream.Null;
+            }
         }
 
+        /// <summary>
+        /// Конвертацич данных из .csv в .json
+        /// </summary>
+        /// <param name="aeroexpresses"></param>
+        /// <param name="savePath"></param>
+        /// <returns>true - успешно; false иначе</returns>
         public bool ConvertToJson(List<Aeroexpress> aeroexpresses, string savePath)
         {
             try
@@ -99,7 +121,7 @@ namespace CSVnJSONAnalyzer
             }
             catch (Exception ex)
             {
-                // здесь надо лог добавить
+                Log.Error($"Ошибка конвертации в CSVtoJSON: {ex.Message}");
                 return false;
             }
         }
