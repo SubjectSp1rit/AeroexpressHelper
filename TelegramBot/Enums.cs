@@ -7,7 +7,8 @@ namespace TelegramBot
         public enum UserState
         {
             None,
-            AwaitingMessage
+            AwaitingMessage,
+            AwaitingForSecondMessage
         }
 
         public enum SelectedFilterType

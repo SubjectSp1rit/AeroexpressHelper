@@ -1,4 +1,8 @@
 ﻿using Serilog;
+using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 
 namespace CSVnJSONAnalyzer
@@ -102,9 +106,22 @@ namespace CSVnJSONAnalyzer
             }
         }
 
-        //public static bool CheckJSONFormat(string filePath)
-        //{
-        //    ;
-        //}
+        public static bool CheckJSONFormat(string filePath)
+        {
+            try
+            {
+                string jsonString = File.ReadAllText(filePath);
+                List<Aeroexpress>? aeroexpresses = JsonSerializer.Deserialize<List<Aeroexpress>>(jsonString);
+                if (aeroexpresses?.Count == 0)
+                {
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
     }
 }

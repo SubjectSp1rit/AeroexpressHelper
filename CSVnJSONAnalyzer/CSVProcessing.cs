@@ -5,6 +5,8 @@ using System.Data;
 using System.Text;
 using Telegram.Bot.Types;
 using System.IO;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace CSVnJSONAnalyzer
 {
@@ -82,29 +84,22 @@ namespace CSVnJSONAnalyzer
             return memoryStream;
         }
 
-
-        public static bool FilterByStationEnd(string filePath, string stationEnd)
+        public bool ConvertToJson(List<Aeroexpress> aeroexpresses, string savePath)
         {
             try
             {
+                var options = new JsonSerializerOptions { WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                string jsonString = JsonSerializer.Serialize(aeroexpresses, options);
+
+                System.IO.File.WriteAllText(savePath, jsonString);
+
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"Произошла ошибка при фильтрации {filePath}: {ex.Message}");
-                return false;
-            }
-        }
-
-        public static bool FilterByStationStartAndStationEnd(string filePath, string stationStart, string stationEnd)
-        {
-            try
-            {
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Произошла ошибка при фильтрации {filePath}: {ex.Message}");
+                // здесь надо лог добавить
                 return false;
             }
         }

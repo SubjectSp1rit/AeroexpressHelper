@@ -14,6 +14,8 @@ using CSVnJSONAnalyzer;
 using System.Collections.Generic;
 using System.Text;
 using static TelegramBot.Enums;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace TelegramBot
 {
@@ -22,6 +24,7 @@ namespace TelegramBot
 
         static Dictionary<long, UserState> userStates = new Dictionary<long, UserState>();
         static Dictionary<long, SelectedFilterType> selectedFilterType = new Dictionary<long, SelectedFilterType>();
+        static Dictionary<long, string?> userFirstWord = new Dictionary<long, string?>();
 
         public static async Task UpdateHandler(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
@@ -68,33 +71,6 @@ namespace TelegramBot
                                         parseMode: ParseMode.Html,
                                         cancellationToken: cancellationToken,
                                         replyMarkup: inlineMenuKeyboardWithJSONandCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.csv"))
-                                {
-                                    await botClient.SendStickerAsync(
-                                    chatId: chat.Id,
-                                    sticker: InputFile.FromFileId(stickerId),
-                                    cancellationToken: cancellationToken);
-
-                                    await botClient.SendTextMessageAsync(
-                                        chatId: chat.Id,
-                                        text: startText,
-                                        parseMode: ParseMode.Html,
-                                        cancellationToken: cancellationToken,
-                                        replyMarkup: inlineMenuKeyboardWithCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.SendStickerAsync(
-                                        chatId: chat.Id,
-                                        sticker: InputFile.FromFileId(stickerId),
-                                        cancellationToken: cancellationToken);
-                                    await botClient.SendTextMessageAsync(
-                                        chatId: chat.Id,
-                                        text: startText,
-                                        parseMode: ParseMode.Html,
-                                        cancellationToken: cancellationToken,
-                                        replyMarkup: inlineMenuKeyboardWithJSON);
                                 }
                                 else
                                 {
@@ -156,8 +132,8 @@ namespace TelegramBot
 
                                             var sortedAeroexpresses =
                                                 (from aeroexpress in aeroexpresses
-                                                    where aeroexpress.StationStart == message.Text
-                                                    select aeroexpress).ToList();
+                                                 where aeroexpress.StationStart.ToLower() == message.Text.ToLower()
+                                                 select aeroexpress).ToList();
 
                                             // СОХРАНЕНИЕ ФАЙЛА В .CSV
 
@@ -198,8 +174,8 @@ namespace TelegramBot
 
                                             var sortedAeroexpresses =
                                                 (from aeroexpress in aeroexpresses
-                                                    where aeroexpress.StationEnd == message.Text
-                                                    select aeroexpress).ToList();
+                                                 where aeroexpress.StationEnd.ToLower() == message.Text.ToLower()
+                                                 select aeroexpress).ToList();
 
                                             // СОХРАНЕНИЕ ФАЙЛА В .CSV
 
@@ -227,55 +203,12 @@ namespace TelegramBot
 
                                         case (SelectedFilterType.FilterByStationStartAndEnd):
                                         {
-                                            string[] parts = message.Text.Split(' ');
-                                            if (parts.Length != 2)
-                                            {
-                                                await botClient.SendTextMessageAsync(
-                                                chatId: chat.Id,
-                                                text: $"Неправильный формат сообщения. Фильтрация не была произведена",
-                                                replyMarkup: inlineBackToMenuKeyboard,
-                                                cancellationToken: cancellationToken);
-
-                                                return;
-                                            }
-                                            string stationStart = parts[0];
-                                            string stationEnd = parts[1];
-
-                                            // ЧТЕНИЕ ФАЙЛА 
-
-                                            using FileStream fileStreamRead = new FileStream($"{user.Id}.csv", FileMode.Open, FileAccess.Read);
-                                            fileStreamRead.Position = 0;
-
-                                            List<Aeroexpress> aeroexpresses;
-                                            bool successfullCreationArray = csvProcessing.Read(fileStreamRead, out aeroexpresses);
-                                            fileStreamRead.Close();
-
-                                            // ФИЛЬТРАЦИЯ ФАЙЛА
-
-                                            var sortedAeroexpresses =
-                                                (from aeroexpress in aeroexpresses
-                                                    where aeroexpress.StationStart == stationStart &&
-                                                    aeroexpress.StationEnd == stationEnd
-                                                    select aeroexpress).ToList();
-
-                                            // СОХРАНЕНИЕ ФАЙЛА В .CSV
-
-                                            // Получение потока с данными
-                                            var dataStream = csvProcessing.Write(sortedAeroexpresses);
-
-                                            using (var fileStream = new FileStream($"{user.Id}.csv", FileMode.Create, FileAccess.Write))
-                                            {
-                                                dataStream.CopyTo(fileStream);
-                                            }
-                                            dataStream.Close();
-
-                                            // Возвращаем стейты в базовое значение
-                                            userStates[chat.Id] = UserState.None;
-                                            selectedFilterType[chat.Id] = SelectedFilterType.None;
+                                            userFirstWord[chat.Id] = message.Text;
+                                            userStates[chat.Id] = UserState.AwaitingForSecondMessage;
 
                                             await botClient.SendTextMessageAsync(
                                                 chatId: chat.Id,
-                                                text: $"Файл успешно отфильтрован!",
+                                                text: $"Отлично! Теперь отправьте второе сообщение-фильтр",
                                                 replyMarkup: inlineBackToMenuKeyboard,
                                                 cancellationToken: cancellationToken);
 
@@ -283,7 +216,56 @@ namespace TelegramBot
                                         }
                                     }
                                 }
-                                await botClient.SendTextMessageAsync(
+                                else if (userStates.ContainsKey(message.Chat.Id) &&
+                                        userStates.ContainsValue(UserState.AwaitingForSecondMessage) &&
+                                        message.Text != null &&
+                                        message.Text != "")
+                                {
+                                    string? stationStart = userFirstWord[chat.Id];
+                                    string? stationEnd = message.Text;
+
+                                    // ЧТЕНИЕ ФАЙЛА 
+
+                                    using FileStream fileStreamRead = new FileStream($"{user.Id}.csv", FileMode.Open, FileAccess.Read);
+                                    fileStreamRead.Position = 0;
+
+                                    List<Aeroexpress> aeroexpresses;
+                                    bool successfullCreationArray = csvProcessing.Read(fileStreamRead, out aeroexpresses);
+                                    fileStreamRead.Close();
+
+                                    // ФИЛЬТРАЦИЯ ФАЙЛА
+
+                                    var sortedAeroexpresses =
+                                        (from aeroexpress in aeroexpresses
+                                            where aeroexpress.StationStart.ToLower() == stationStart.ToLower() &&
+                                            aeroexpress.StationEnd.ToLower() == stationEnd.ToLower()
+                                            select aeroexpress).ToList();
+
+                                    // СОХРАНЕНИЕ ФАЙЛА В .CSV
+
+                                    // Получение потока с данными
+                                    var dataStream = csvProcessing.Write(sortedAeroexpresses);
+
+                                    using (var fileStream = new FileStream($"{user.Id}.csv", FileMode.Create, FileAccess.Write))
+                                    {
+                                        dataStream.CopyTo(fileStream);
+                                    }
+                                    dataStream.Close();
+
+                                    // Возвращаем стейты в базовое значение
+                                    userStates[chat.Id] = UserState.None;
+                                    selectedFilterType[chat.Id] = SelectedFilterType.None;
+                                    userFirstWord[chat.Id] = null;
+
+                                    await botClient.SendTextMessageAsync(
+                                        chatId: chat.Id,
+                                        text: $"Файл успешно отфильтрован!",
+                                        replyMarkup: inlineBackToMenuKeyboard,
+                                        cancellationToken: cancellationToken);
+
+                                    return;
+                                }
+                                        await botClient.SendTextMessageAsync(
                                     chatId: chat.Id,
                                     text: "Неизвестная команда. Возврат в меню.",
                                     replyToMessageId: message.MessageId,
@@ -295,22 +277,6 @@ namespace TelegramBot
                                     text: "Главное меню",
                                     cancellationToken: cancellationToken,
                                     replyMarkup: inlineMenuKeyboardWithJSONandCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.csv"))
-                                {
-                                    await botClient.SendTextMessageAsync(
-                                    chatId: chat.Id,
-                                    text: "Главное меню",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineMenuKeyboardWithCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.SendTextMessageAsync(
-                                    chatId: chat.Id,
-                                    text: "Главное меню",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineMenuKeyboardWithJSON);
                                 }
                                 else
                                 {
@@ -335,6 +301,7 @@ namespace TelegramBot
                             if (fileExtension == ".csv")
                             {
                                 var savePath = $"{message.From.Id}{fileExtension}";
+                                var jsonSavePath = $"{message.From.Id}.json";
 
                                 using (var saveFileStream = new FileStream(savePath, FileMode.Create))
                                 {
@@ -371,6 +338,40 @@ namespace TelegramBot
                                         return;
                                 }
 
+                                // ЧТЕНИЕ ФАЙЛА И СОЗДАНИЕ КОЛЛЕКЦИИ ЭКЗЕМПЛЯРОВ
+                                using FileStream fileStreamRead = new FileStream($"{user.Id}.csv", FileMode.Open, FileAccess.Read);
+                                fileStreamRead.Position = 0;
+
+                                List <Aeroexpress> aeroexpresses;
+                                bool successfullCreationArray = csvProcessing.Read(fileStreamRead, out aeroexpresses);
+                                fileStreamRead.Close();
+
+                                // КОНВЕРТАЦИЯ CSV ФАЙЛА В JSON
+                                bool successfullConvertation = csvProcessing.ConvertToJson(aeroexpresses, jsonSavePath);
+                                if (!successfullConvertation)
+                                {
+                                    await botClient.SendTextMessageAsync(
+                                        message.Chat.Id,
+                                        text: $"Не удалось автоматически конвертировать файл в .json!" +
+                                        $" Повторите попытку или проверьте корректность данных.",
+                                        replyMarkup: inlineBackToMenuKeyboard,
+                                        cancellationToken: cancellationToken);
+
+                                        var csvPath = $"{user.Id}.csv";
+                                        var jsonPath = $"{user.Id}.json";
+
+                                        if (System.IO.File.Exists(csvPath))
+                                        {
+                                            System.IO.File.Delete(csvPath);
+                                        }
+                                        if (System.IO.File.Exists(jsonPath))
+                                        {
+                                            System.IO.File.Delete(jsonPath);
+                                        }
+
+                                        return;
+                                }
+
                                 await botClient.SendTextMessageAsync(
                                     message.Chat.Id,
                                     text: $"Файл с расширением {fileExtension} успешно загружен!",
@@ -387,12 +388,39 @@ namespace TelegramBot
                                 }
 
                                 // TODO: Добавить проверку на корректность данных
-
-                                await botClient.SendTextMessageAsync(
+                                if (!CheckJSONFormat(savePath))
+                                {
+                                    await botClient.SendTextMessageAsync(
                                     message.Chat.Id,
-                                    text: $"Файл с расширением {fileExtension} успешно загружен!",
+                                    text: $"Неверный формат файла! Проверьте корректность данных",
                                     replyMarkup: inlineBackToMenuKeyboard,
                                     cancellationToken: cancellationToken);
+
+                                    if (System.IO.File.Exists(savePath))
+                                    {
+                                        System.IO.File.Delete(savePath);
+                                    }
+
+                                    return;
+                                }
+
+                                // TODO: Добавить конвертер в CSV
+                                string jsonString = System.IO.File.ReadAllText(savePath);
+                                List<Aeroexpress>? aeroexpresses = JsonSerializer.Deserialize<List<Aeroexpress>>(jsonString);
+                                    
+                                var dataStream = csvProcessing.Write(aeroexpresses);
+
+                                using (var fileStream = new FileStream($"{user.Id}.csv", FileMode.Create, FileAccess.Write))
+                                {
+                                    dataStream.CopyTo(fileStream);
+                                }
+                                dataStream.Close(); 
+
+                                await botClient.SendTextMessageAsync(
+                                message.Chat.Id,
+                                text: $"Файл с расширением {fileExtension} успешно загружен!",
+                                replyMarkup: inlineBackToMenuKeyboard,
+                                cancellationToken: cancellationToken);
                             }
                             else
                             {
@@ -430,6 +458,7 @@ namespace TelegramBot
                             case "fileFormat":
                             {
                                 await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+
                                 await botClient.EditMessageTextAsync(
                                     chat.Id,
                                     messageId: callbackQuery.Message.MessageId,
@@ -446,11 +475,12 @@ namespace TelegramBot
 
                             case "backToMenu":
                             {
-                                await botClient.AnswerCallbackQueryAsync(callbackQuery.Id, "Вы вернулись в главное меню");
+                                await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
 
                                 // Отмена стейта, так как пользователь вернулся в меню
                                 userStates[chat.Id] = UserState.None;
                                 selectedFilterType[chat.Id] = SelectedFilterType.None;
+                                userFirstWord[chat.Id] = null;
 
                                 if (System.IO.File.Exists($"{user.Id}.csv") && System.IO.File.Exists($"{user.Id}.json"))
                                 {
@@ -460,24 +490,6 @@ namespace TelegramBot
                                     text: "Главное меню",
                                     cancellationToken: cancellationToken,
                                     replyMarkup: inlineMenuKeyboardWithJSONandCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.csv"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Главное меню",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineMenuKeyboardWithCSV);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Главное меню",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineMenuKeyboardWithJSON);
                                 }
                                 else
                                 {
@@ -505,132 +517,38 @@ namespace TelegramBot
                                 return;
                             }
 
-                            case "deleteCSV":
+                            case "deleteFile":
                             {
-                                var path = $"{user.Id}.csv";
+                                await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
 
-                                if (System.IO.File.Exists(path))
+                                var csvPath = $"{user.Id}.csv";
+                                var jsonPath = $"{user.Id}.json";
+
+                                if (System.IO.File.Exists(csvPath))
                                 {
-                                    System.IO.File.Delete(path);
+                                    System.IO.File.Delete(csvPath);
+                                }
+                                if (System.IO.File.Exists(jsonPath))
+                                {
+                                    System.IO.File.Delete(jsonPath);
                                 }
                                 
                                 await botClient.EditMessageTextAsync(
                                     chat.Id,
                                     messageId: callbackQuery.Message.MessageId,
-                                    text: "Файл .csv успешно удалён!",
+                                    text: "Файл успешно удалён!",
                                     replyMarkup: inlineBackToMenuKeyboard,
                                     cancellationToken: cancellationToken);
 
-                                Log.Information($"{user.Username ?? "Аноним"} (id64: {user.Id}) удалил файл типа .csv");
+                                Log.Information($"{user.Username ?? "Аноним"} (id64: {user.Id}) удалил файл");
 
-                                return;
-                            }
-
-                            case "deleteJSON":
-                            {
-                                var path = $"{user.Id}.json";
-
-                                if (System.IO.File.Exists(path))
-                                {
-                                    System.IO.File.Delete(path);
-                                }
-                                
-                                await botClient.EditMessageTextAsync(
-                                    chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Файл .json успешно удалён!",
-                                    replyMarkup: inlineBackToMenuKeyboard,
-                                    cancellationToken: cancellationToken);
-
-                                Log.Information($"{user.Username ?? "Аноним"} (id64: {user.Id}) удалил файл типа .json");
-
-                                return;
-                            }
-
-                            case "filterFile":
-                            {
-                                if (System.IO.File.Exists($"{user.Id}.csv") && System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отфильтровать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineFilterJSONandCSVKeyboard);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.csv"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отфильтровать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineFilterCSVKeyboard);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отфильтровать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineFilterJSONKeyboard);
-                                }
-                                else
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Нет доступных файлов для фильтрации",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineBackToMenuKeyboard);
-                                }
-                                return;
-                            }
-
-                            case "sortFile":
-                            {
-                                if (System.IO.File.Exists($"{user.Id}.csv") && System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отсортировать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineSortJSONandCSVKeyboard);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.csv"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отсортировать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineSortCSVKeyboard);
-                                }
-                                else if (System.IO.File.Exists($"{user.Id}.json"))
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Выберите файл, который хотите отсортировать",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineSortJSONKeyboard);
-                                }
-                                else
-                                {
-                                    await botClient.EditMessageTextAsync(
-                                    chatId: chat.Id,
-                                    messageId: callbackQuery.Message.MessageId,
-                                    text: "Нет доступных файлов для сортировки",
-                                    cancellationToken: cancellationToken,
-                                    replyMarkup: inlineBackToMenuKeyboard);
-                                }
                                 return;
                             }
 
                             case "filterCSV":
                             {
+                                await botClient.AnswerCallbackQueryAsync(callbackQuery.Id);
+
                                 await botClient.EditMessageTextAsync(
                                     chatId: chat.Id,
                                     messageId: callbackQuery.Message.MessageId,
@@ -640,11 +558,6 @@ namespace TelegramBot
                                 return;
                             }
 
-                            case "filterJSON":
-                            {
-                                return;
-                            }
-                            
                             case "sortCSV":
                             {
                                 await botClient.EditMessageTextAsync(
@@ -653,11 +566,6 @@ namespace TelegramBot
                                     text: "Выберите поле для сортировки",
                                     cancellationToken: cancellationToken,
                                     replyMarkup: inlineSelectSortCSVTypeKeyboard);
-                                return;
-                            }
-
-                            case "sortJSON":
-                            {
                                 return;
                             }
 
@@ -774,13 +682,47 @@ namespace TelegramBot
                                 await botClient.EditMessageTextAsync(
                                     chatId: chat.Id,
                                     messageId: callbackQuery.Message.MessageId,
-                                    text: "Отправьте сообщение, содержащее корректную строку для фильтрации по полю StationStart" +
-                                    " и StationEnd. Корректный формат: два слова (Start и End соответственно) через пробел:",
+                                    text: "Последовательно отправьте два сообщения, содержащие слова для фильтрации" +
+                                    " по полям StationStart и StationEnd соответственно:",
                                     cancellationToken: cancellationToken,
                                     replyMarkup: inlineBackToMenuKeyboard);
 
                                 userStates[chat.Id] = UserState.AwaitingMessage;
                                 selectedFilterType[chat.Id] = SelectedFilterType.FilterByStationStartAndEnd;
+
+                                return;
+                            }
+
+                            case ("downloadCSVFile"):
+                            {
+                                string path = $"{user.Id}.csv";
+                                if (!System.IO.File.Exists(path)) return;
+                                
+                                await using Stream stream = System.IO.File.OpenRead($"{user.Id}.csv");
+
+                                await botClient.SendDocumentAsync(
+                                    chatId: chat.Id,
+                                    document: InputFile.FromStream(
+                                        stream: stream,
+                                        fileName: "aeroexpress.csv"),
+                                    caption: "Готово! Вот ваш файл формата .csv:");
+
+                                return;
+                            }
+
+                            case ("downloadJSONFile"):
+                            {
+                                string path = $"{user.Id}.json";
+                                if (!System.IO.File.Exists(path)) return;
+                                
+                                await using Stream stream = System.IO.File.OpenRead($"{user.Id}.json");
+
+                                await botClient.SendDocumentAsync(
+                                    chatId: chat.Id,
+                                    document: InputFile.FromStream(
+                                        stream: stream,
+                                        fileName: "aeroexpress.json"),
+                                    caption: "Готово! Вот ваш файл формата .json:");
 
                                 return;
                             }
