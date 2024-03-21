@@ -5,13 +5,13 @@ namespace CSVnJSONAnalyzer
 {
     public class Aeroexpress
     {
-        int _id;
-        string? _stationStart;
-        string? _line;
-        string? _timeStart;
-        string? _stationEnd;
-        string? _timeEnd;
-        int _globalId;
+        private int _id;
+        private string? _stationStart;
+        private string? _line;
+        private string? _timeStart;
+        private string? _stationEnd;
+        private string? _timeEnd;
+        private long _globalId;
 
         [JsonPropertyName("ID")]
         public int Id
@@ -85,12 +85,12 @@ namespace CSVnJSONAnalyzer
         }
 
         [JsonPropertyName("global_id")]
-        public int GlobalId
+        public long GlobalId
         {
             get => _globalId;
             set
             {
-                if (!int.TryParse(value.ToString(), out _globalId)) throw new ArgumentException(
+                if (!long.TryParse(value.ToString(), out _globalId)) throw new ArgumentException(
                     nameof(value), "Значение поля globalId должно быть числом.");
             }
         }
@@ -102,7 +102,7 @@ namespace CSVnJSONAnalyzer
                            string? timeStart,
                            string? stationEnd,
                            string? timeEnd,
-                           int globalId)
+                           long globalId)
         {
             (Id, StationStart, Line, TimeStart, StationEnd, TimeEnd, GlobalId) =
                 (id, stationStart, line, timeStart, stationEnd, timeEnd, globalId);

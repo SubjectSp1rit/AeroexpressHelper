@@ -45,6 +45,8 @@ public class Program
         var me = await _botClient.GetMeAsync(); // Создаем переменную, в которую помещаем информацию о нашем боте.
         Log.Information($"{me.FirstName} запущен!");
 
+        Thread.Sleep(-1);
+        cts.Cancel();
         await Task.Delay(-1); // Устанавливаем бесконечную задержку, чтобы бот работал постоянно
     }
 }
