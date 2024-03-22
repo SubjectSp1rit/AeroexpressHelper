@@ -1,7 +1,8 @@
 ﻿using Serilog;
-using static CSVnJSONAnalyzer.FormatChecking;
-using static CSVnJSONAnalyzer.Aeroexpress;
 using System.Data;
+using System.Text;
+using System.Text.Json;
+using System.Text.Encodings.Web;
 
 namespace CSVnJSONAnalyzer
 {
@@ -10,13 +11,19 @@ namespace CSVnJSONAnalyzer
     /// </summary>
     public class CSVProcessing
     {
+        /// <summary>
+        /// Читает данные из .csv файла и возвращает список экземпляров класса Aeroexpress
+        /// </summary>
+        /// <param name="csvStream"></param>
+        /// <param name="aeroexpressList"></param>
+        /// <returns>true - успешно; false иначе</returns>
         public bool Read(Stream csvStream, out List<Aeroexpress> aeroexpressList)
         {
             aeroexpressList = new List<Aeroexpress>();
             try
             {
                 var lines = new List<string>();
-                using (var reader = new StreamReader(csvStream))
+                using (var reader = new StreamReader(csvStream, Encoding.UTF8))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -25,184 +32,96 @@ namespace CSVnJSONAnalyzer
                     }
                 }
 
-                //bool doHaveSecondHeader = DoHaveSecondHeader(filePath);
-                //if (doHaveSecondHeader) 
-                //{
-                //    bool successfulRemoval = RemoveSecondHeader(filePath);
-                //    if (!successfulRemoval) return false;
-                //}
-                //bool isFormatCorrect = CheckCSVFormat(filePath);
-                //if (!isFormatCorrect) return false;
+                foreach (var row in lines.Skip(1))
+                {
+                    var parts = row.Split(new char[] { ';', ',' }).Select(line => line.Trim('"')).ToArray();
 
-                //var csvRows = File.ReadAllLines(filePath).Skip(1);
-                //foreach (var row in csvRows)
-                //{
-                //    var parts = row.Split(';');
+                    int id = int.Parse(parts[0]);
+                    string? stationStart = parts[1];
+                    string? line = parts[2];
+                    string? timeStart = parts[3];
+                    string? stationEnd = parts[4];
+                    string? timeEnd = parts[5];
+                    long globalId = long.Parse(parts[6]);
 
-                //    int id = int.Parse(parts[0]);
-                //    string? stationStart = parts[1];
-                //    string? line = parts[2];
-                //    string? timeStart = parts[3];
-                //    string? stationEnd = parts[4];
-                //    string? timeEnd = parts[5];
-                //    int globalId = int.Parse(parts[6]);
-
-                //    aeroexpressList.Add(new Aeroexpress(id,
-                //                                        stationStart,
-                //                                        line,
-                //                                        timeStart,
-                //                                        stationEnd,
-                //                                        timeEnd,
-                //                                        globalId));
-                //}
-
+                    aeroexpressList.Add(new Aeroexpress(id,
+                                                        stationStart,
+                                                        line,
+                                                        timeStart,
+                                                        stationEnd,
+                                                        timeEnd,
+                                                        globalId));
+                }
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"Произошла ошибка при создании списка Aeroexpress: {ex.Message}");
+                Log.Error($"Произошла ошибка при создании списка Aeroexpress: {ex.ToString()}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Сортирует .csv файлы по полю TimeStart в порядке возрастания значения
+        /// Принимает коллекцию экземпляров класса Aeroexpress и добавляет их в поток для последующего
+        /// сохранения
         /// </summary>
-        /// <param name="filePath">путь до .csv файла</param>
-        /// <returns>true - сортировка прошла успешно; false иначе</returns>
-        public static bool SortByTimeStart(string filePath)
+        /// <param name="aeroexpresses"></param>
+        /// <returns>поток, в котором находятся данные для сохранения</returns>
+        public Stream Write(List<Aeroexpress> aeroexpresses)
         {
             try
             {
-                if (DoHaveSecondHeader(filePath)) RemoveSecondHeader(filePath);
-                if (!CheckCSVFormat(filePath)) return false;
+                var memoryStream = new MemoryStream();
+                var writer = new StreamWriter(memoryStream, Encoding.UTF8);
 
-                var csvRows = File.ReadAllLines(filePath);
-                var header = csvRows.First();
-                var dataRows = csvRows.Skip(1)
-                    .Select(row => new
-                    {
-                        OriginalRow = row,
-                        TimeStart = row.Split(';')[3]
-                    })
-                    .OrderBy(x => x.TimeStart)
-                    .Select(x => x.OriginalRow);
+                writer.WriteLine("\"ID\";\"StationStart\";\"Line\";\"TimeStart\";\"StationEnd\";\"TimeEnd\";\"global_id\"");
+                foreach (var aeroexpress in aeroexpresses)
+                {
+                    var line = $"\"{aeroexpress.Id}\";" +
+                                $"\"{aeroexpress.StationStart}\";" +
+                                $"\"{aeroexpress.Line}\";" +
+                                $"\"{aeroexpress.TimeStart}\";" +
+                                $"\"{aeroexpress.StationEnd}\";" +
+                                $"\"{aeroexpress.TimeEnd}\";" +
+                                $"\"{aeroexpress.GlobalId}\"";
+                    writer.WriteLine(line);
+                }
 
-                var sortedRows = (new[] { header }).Concat(dataRows);
-                File.WriteAllLines(filePath, sortedRows);
-                return true;
+                // Очистка всех буферов для writer и запись всех данных в базовый поток
+                writer.Flush();
+
+                memoryStream.Position = 0;
+                return memoryStream;
             }
             catch (Exception ex)
             {
-                Log.Error($"Произошла ошибка при сортировке {filePath}: {ex.Message}");
-                return false;
+                Log.Error($"Произошла ошибка при создании потока для CSV: {ex.Message}");
+                return MemoryStream.Null;
             }
         }
 
         /// <summary>
-        /// Сортирует .csv файлы по полю TimeEnd в порядке возрастания значения
+        /// Конвертацич данных из .csv в .json
         /// </summary>
-        /// <param name="filePath">путь до .csv файла</param>
-        /// <returns>true - сортировка прошла успешно; false иначе</returns>
-        public static bool SortByTimeEnd(string filePath)
+        /// <param name="aeroexpresses"></param>
+        /// <param name="savePath"></param>
+        /// <returns>true - успешно; false иначе</returns>
+        public bool ConvertToJson(List<Aeroexpress> aeroexpresses, string savePath)
         {
             try
             {
-                if (DoHaveSecondHeader(filePath)) RemoveSecondHeader(filePath);
-                if (!CheckCSVFormat(filePath)) return false;
+                var options = new JsonSerializerOptions { WriteIndented = true,
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                string jsonString = JsonSerializer.Serialize(aeroexpresses, options);
 
-                var csvRows = File.ReadAllLines(filePath);
-                var header = csvRows.First();
-                var dataRows = csvRows.Skip(1)
-                    .Select(row => new
-                    {
-                        OriginalRow = row,
-                        TimeEnd = row.Split(';')[5]
-                    })
-                    .OrderBy(x => x.TimeEnd)
-                    .Select(x => x.OriginalRow);
+                System.IO.File.WriteAllText(savePath, jsonString);
 
-                var sortedRows = (new[] { header }).Concat(dataRows);
-                File.WriteAllLines(filePath, sortedRows);
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"Произошла ошибка при сортировке {filePath}: {ex.Message}");
-                return false;
-            }
-        }
-
-        public static bool FilterByStationStart(string filePath, string stationStart)
-        {
-            try
-            {
-                if (DoHaveSecondHeader(filePath)) RemoveSecondHeader(filePath);
-                if (!CheckCSVFormat(filePath)) return false;
-
-                var csvRows = File.ReadAllLines(filePath);
-                var header = csvRows.First();
-                var filteredRows = csvRows.Skip(1)
-                    .Where(row => row.Split(';')[1].Equals(stationStart, StringComparison.OrdinalIgnoreCase))
-                    .Prepend(header);
-
-                File.WriteAllLines(filePath, filteredRows);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Произошла ошибка при фильтрации {filePath}: {ex.Message}");
-                return false;
-            }
-        }
-
-        public static bool FilterByStationEnd(string filePath, string stationEnd)
-        {
-            try
-            {
-                if (DoHaveSecondHeader(filePath)) RemoveSecondHeader(filePath);
-                if (!CheckCSVFormat(filePath)) return false;
-
-                var csvRows = File.ReadAllLines(filePath);
-                var header = csvRows.First();
-                var filteredRows = csvRows.Skip(1)
-                    .Where(row => row.Split(';')[4].Equals(stationEnd, StringComparison.OrdinalIgnoreCase))
-                    .Prepend(header);
-
-                File.WriteAllLines(filePath, filteredRows);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Произошла ошибка при фильтрации {filePath}: {ex.Message}");
-                return false;
-            }
-        }
-
-        public static bool FilterByStationStartAndStationEnd(string filePath, string stationStart, string stationEnd)
-        {
-            try
-            {
-                if (DoHaveSecondHeader(filePath)) RemoveSecondHeader(filePath);
-                if (!CheckCSVFormat(filePath)) return false;
-
-                var csvRows = File.ReadAllLines(filePath);
-                var header = csvRows.First();
-                var filteredRows = csvRows.Skip(1)
-                    .Where(row =>
-                    {
-                        var fields = row.Split(";");
-                        return fields[1].Equals(stationStart, StringComparison.OrdinalIgnoreCase) &&
-                               fields[4].Equals(stationEnd, StringComparison.OrdinalIgnoreCase);
-                    })
-                    .Prepend(header);
-
-                File.WriteAllLines(filePath, filteredRows);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Произошла ошибка при фильтрации {filePath}: {ex.Message}");
+                Log.Error($"Ошибка конвертации в CSVtoJSON: {ex.Message}");
                 return false;
             }
         }
